@@ -12,6 +12,7 @@ import displayio
 import time
 import terminalio
 import adafruit_imageload
+import adafruit_requests as requests
 from adafruit_bitmap_font import bitmap_font
 from adafruit_display_text import label, wrap_text_to_pixels
 from adafruit_fakerequests import Fake_Requests
@@ -22,7 +23,7 @@ from utimezone.utimezone import Timezone
 from utimezone.utzlist import America_Pacific
 
 # Configuration
-DEV_MODE = True
+DEV_MODE = False
 USE_24HR_TIME = True
 TIME_BETWEEN_REFRESHES = 60 * 60  # Seconds
 
@@ -39,6 +40,11 @@ DETAIL_PATH = ['results',0,'mission','description']
 
 months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
           "Aug", "Sep", "Oct", "Nov", "Dec"]
+status_filters = [ 3, # Success
+                   4, # Failure
+                   6, # In Flight
+                   7, # Partial Failure
+]
 
 # These functions take the JSON data keys and does checks to determine
 #   how to display the data. They're used in the add_text blocks below
@@ -66,7 +72,13 @@ def time_transform(val2):
 def details_transform(val3):
     if val3 == None or not len(val3):
         return "Details: To Be Determined"
-    return "\n".join(wrap_text_to_pixels(val3, 276, font_small)[:4])
+    return "\n".join(wrap_text_to_pixels(val3, 276, font_small)[:3])
+
+def pad_transform(val):
+    return val.split(",")[0]
+
+def status_transform(val):
+    return "Status: " + val
 
 # Initialize things
 print(":: Starting")
@@ -86,12 +98,14 @@ font_small = terminalio.FONT
 # Build display layers
 print(":: Building UI")
 # Background
-bg_bmp = displayio.OnDiskBitmap("spacex.bmp")
+print("   - Background")
+bg_bmp = displayio.OnDiskBitmap("/bmp/spacex.bmp")
 bg_tile = displayio.TileGrid(bg_bmp, pixel_shader=bg_bmp.pixel_shader)
 bg_group = displayio.Group()
 bg_group.append(bg_tile)
 
 # Launch information text
+print("   - Info")
 launch_info_group = displayio.Group()
 header_label = label.Label(
     font_large,
@@ -108,19 +122,25 @@ mission_label = label.Label(
 time_label = label.Label(
     font_medium,
     color=0x000000,
-    x=10, y=58,
+    x=10, y=57,
     text="Time"
 )
 pad_label = label.Label(
+    font_medium,
+    color=0x000000,
+    x=140, y=57,
+    text="Location"
+)
+status_label = label.Label(
     font_small,
     color=0x000000,
-    x=130, y=58,
-    text="Launch Pad"
+    x=10, y=73,
+    text="Status",
 )
 details_label = label.Label(
     font_small,
     color=0x000000,
-    x=10, y=74,
+    x=10, y=85,
     text="Details",
     anchor_poiint=(0,0),
     line_spacing=0.8,
@@ -130,12 +150,14 @@ launch_info_group.append(header_label)
 launch_info_group.append(mission_label)
 launch_info_group.append(time_label)
 launch_info_group.append(pad_label)
+launch_info_group.append(status_label)
 launch_info_group.append(details_label)
 
 # Status bar
+print("   - Status")
 status_bar_group = displayio.Group()
 sprite_sheet, palette = adafruit_imageload.load(
-    '/sprites.bmp',
+    '/bmp/sprites.bmp',
     bitmap=displayio.Bitmap,
     palette=displayio.Palette
 )
@@ -170,36 +192,41 @@ status_bar_group.append(battery_icon)
 status_bar_group.append(battery_label)
 
 # Connect to network
-#print(":: Connecting to WiFi")
-#try:
-#    # Have the MagTag connect to the internet
-#    magtag.network.connect()
-#except (ValueError, RuntimeError, ConnectionError, OSError) as e:
-#    print("WiFi connection failed: ", e)
-#if magtag.network.is_connected:
-#    signal_icon[0] = 1
+print(":: Connecting to WiFi")
+try:
+    # Have the MagTag connect to the internet
+    magtag.network.connect()
+except (ValueError, RuntimeError, ConnectionError, OSError) as e:
+    print("WiFi connection failed: ", e)
+if magtag.network.is_connected:
+    signal_icon[0] = 1
 
 
 # Fetch data
 print(":: Fetching data")
 try:
     #value = magtag.fetch()
-    response = Fake_Requests("test_data.json")
+    #response = Fake_Requests("test_data.json")
+    response = magtag.network.fetch(DATA_URL)
     data = response.json()
-    #print("API Response: ", response.headers)
+    print("API Response: ", response.headers)
 except (ValueError, RuntimeError, ConnectionError, OSError) as e:
     print("Error fetching data: ", e)
 
 # Update display objects
 print(":: Updating UI")
-launch = data['results'][0]
+filtered_launches = [x for x in data['results'] if x['status']['id'] not in status_filters] 
+#launch = data['results'][0]
+launch = filtered_launches[0]
 mission_label.text = mission_transform(launch['name'])
 time_label.text = time_transform(launch['net'])
-pad_label.text = launch['pad']['name']
+pad_label.text = pad_transform(launch['pad']['location']['name'])
+status_label.text = status_transform(launch['status']['abbrev'])
 details_label.text = details_transform(launch['mission']['description'])
 print(mission_label.text)
 print(time_label.text)
 print(pad_label.text)
+print(status_label.text)
 print(details_label.text)
 
 # Display things
