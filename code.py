@@ -56,7 +56,7 @@ def mission_transform(val):
 
 def time_transform(val2):
     if val2 == None:
-        return "When: Unavailable"
+        return "Unknown"
     ldate = datetime.fromisoformat(val2[:19])
     local = America_Pacific.toLocal(ldate)
 
@@ -69,15 +69,20 @@ def time_transform(val2):
 
     return "%s %d at %s" % (months[local.month-1], local.day, timestring)
 
-def details_transform(val3):
-    if val3 == None or not len(val3):
-        return "Details: To Be Determined"
-    return "\n".join(wrap_text_to_pixels(val3, 276, font_small)[:3])
+def details_transform(val):
+    print(val)
+    if val == None or not len(val):
+        return "Unavailable"
+    return "\n".join(wrap_text_to_pixels(val.replace('\r',''), 280, font_small)[:3])
 
 def pad_transform(val):
+    if val == None or not len(val):
+        return "Unavailable"
     return val.split(",")[0]
 
 def status_transform(val):
+    if val == None or not len(val):
+        return "Unavailable"
     return "Status: " + val
 
 # Initialize things
@@ -110,37 +115,43 @@ launch_info_group = displayio.Group()
 header_label = label.Label(
     font_large,
     color=0x000000,
-    x=10, y=15,
+    x=8, y=15,
     text="Next SpaceX Launch",
 )
 mission_label = label.Label(
     font_medium_bold,
     color=0x000000,
-    x=10, y=38,
+    x=8, y=38,
     text="Mission Name"
 )
 time_label = label.Label(
     font_medium,
     color=0x000000,
-    x=10, y=57,
+    x=8, y=57,
     text="Time"
 )
 pad_label = label.Label(
     font_medium,
     color=0x000000,
-    x=140, y=57,
+    x=135, y=57,
     text="Location"
+)
+rocket_label = label.Label(
+    font_small,
+    color=0x000000,
+    x=8, y=73,
+    text="Rocket",
 )
 status_label = label.Label(
     font_small,
     color=0x000000,
-    x=10, y=73,
+    x=135, y=73,
     text="Status",
 )
 details_label = label.Label(
     font_small,
     color=0x000000,
-    x=10, y=85,
+    x=8, y=85,
     text="Details",
     anchor_poiint=(0,0),
     line_spacing=0.8,
@@ -150,6 +161,7 @@ launch_info_group.append(header_label)
 launch_info_group.append(mission_label)
 launch_info_group.append(time_label)
 launch_info_group.append(pad_label)
+launch_info_group.append(rocket_label)
 launch_info_group.append(status_label)
 launch_info_group.append(details_label)
 
@@ -201,33 +213,36 @@ except (ValueError, RuntimeError, ConnectionError, OSError) as e:
 if magtag.network.is_connected:
     signal_icon[0] = 1
 
-
 # Fetch data
 print(":: Fetching data")
-try:
-    #value = magtag.fetch()
-    #response = Fake_Requests("test_data.json")
-    response = magtag.network.fetch(DATA_URL)
-    data = response.json()
-    print("API Response: ", response.headers)
-except (ValueError, RuntimeError, ConnectionError, OSError) as e:
-    print("Error fetching data: ", e)
-
-# Update display objects
-print(":: Updating UI")
-filtered_launches = [x for x in data['results'] if x['status']['id'] not in status_filters] 
-#launch = data['results'][0]
-launch = filtered_launches[0]
-mission_label.text = mission_transform(launch['name'])
-time_label.text = time_transform(launch['net'])
-pad_label.text = pad_transform(launch['pad']['location']['name'])
-status_label.text = status_transform(launch['status']['abbrev'])
-details_label.text = details_transform(launch['mission']['description'])
-print(mission_label.text)
-print(time_label.text)
-print(pad_label.text)
-print(status_label.text)
-print(details_label.text)
+success = False
+retries = 0
+while not success and retries < 3:
+    try:
+        #response = Fake_Requests("test_data.json")
+        response = magtag.network.fetch(DATA_URL)
+        data = response.json()
+        success = True
+        print("API Response: ", response.headers)
+        # Update display objects
+        print(":: Updating UI")
+        filtered_launches = [x for x in data['results'] if x['status']['id'] not in status_filters] 
+        #launch = data['results'][0]
+        launch = filtered_launches[0]
+        mission_label.text = mission_transform(launch['mission']['name'])
+        time_label.text = time_transform(launch['net'])
+        pad_label.text = pad_transform(launch['pad']['location']['name'])
+        rocket_label.text = launch['rocket']['configuration']['full_name']
+        status_label.text = status_transform(launch['status']['abbrev'])
+        details_label.text = details_transform(launch['mission']['description'])
+        print(mission_label.text)
+        print(time_label.text)
+        print(pad_label.text)
+        print(status_label.text)
+        print(details_label.text)
+    except (ValueError, RuntimeError, ConnectionError, OSError) as e:
+        retries += 1
+        print("Error fetching data: ", e)
 
 # Display things
 print(":: Displaying")
