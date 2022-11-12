@@ -23,20 +23,17 @@ from utimezone.utimezone import Timezone
 from utimezone.utzlist import America_Pacific
 
 # Configuration
-DEV_MODE = False
+DEV_MODE = True
 USE_24HR_TIME = True
 TIME_BETWEEN_REFRESHES = 60 * 60  # Seconds
 
 # Set up data location and fields
 if DEV_MODE:
-    DATA_URL = "https://lldev.thespacedevs.com/2.2.0/launch/upcoming/?search=SpaceX"
+    DATA_URL = "https://lldev.thespacedevs.com/2.2.0/launch/upcoming/?search="
 else:
-    DATA_URL = "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?search=SpaceX"
+    DATA_URL = "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?search="
 
-NAME_PATH = ['results',0,'name']
-DATE_PATH = ['results',0,'net']
-PAD_PATH = ['results',0,'pad','name']
-DETAIL_PATH = ['results',0,'mission','description']
+search_terms = ["SpaceX", "NASA"]
 
 months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
           "Aug", "Sep", "Oct", "Nov", "Dec"]
@@ -48,6 +45,9 @@ status_filters = [ 3, # Success
 
 # These functions take the JSON data keys and does checks to determine
 #   how to display the data. They're used in the add_text blocks below
+
+def header_transform(val):
+    return "Next {} Launch".format(val)
 
 def mission_transform(val):
     if val == None:
@@ -80,6 +80,11 @@ def pad_transform(val):
         return "Unavailable"
     return val.split(",")[0]
 
+def rocket_transform(val):
+    if val  == None or not len(val):
+        return "Unavailable"
+    return wrap_text_to_pixels(val, 120, font_small)[0]
+
 def status_transform(val):
     if val == None or not len(val):
         return "Unavailable"
@@ -105,12 +110,6 @@ font_small = terminalio.FONT
 
 # Build display layers
 print(":: Building UI")
-# Background
-print("   - Background")
-bg_bmp = displayio.OnDiskBitmap("/bmp/spacex.bmp")
-bg_tile = displayio.TileGrid(bg_bmp, pixel_shader=bg_bmp.pixel_shader)
-bg_group = displayio.Group()
-bg_group.append(bg_tile)
 
 # Launch information text
 print("   - Info")
@@ -119,7 +118,7 @@ header_label = label.Label(
     font_large,
     color=0x000000,
     x=8, y=15,
-    text="Next SpaceX Launch",
+    text="Next Launch",
 )
 mission_label = label.Label(
     font_medium_bold,
@@ -222,20 +221,38 @@ success = False
 retries = 0
 while not success and retries < 3:
     try:
-        #response = Fake_Requests("test_data.json")
-        response = magtag.network.fetch(DATA_URL)
-        data = response.json()
+        launches = []
+        for term in search_terms:
+            print("   - "+term)
+            #response = Fake_Requests("test_data.json")
+            response = magtag.network.fetch(DATA_URL+term)
+            print("API Response: ", response.headers)
+            data = response.json()
+            # Save search term with each launch
+            for l in data['results']:
+                l['term'] = term
+            launches += data['results']
         success = True
-        print("API Response: ", response.headers)
+        for l in launches:
+            print(l['name'])
+        sorted_launches = sorted(launches, key=lambda l: l['net'])
+        for l in sorted_launches:
+            print(l['name'])
+        filtered_launches = [x for x in sorted_launches if x['status']['id'] not in status_filters] 
         # Update display objects
         print(":: Updating UI")
-        filtered_launches = [x for x in data['results'] if x['status']['id'] not in status_filters] 
-        #launch = data['results'][0]
         launch = filtered_launches[0]
+        # Background
+        print("   - Background")
+        bg_bmp = displayio.OnDiskBitmap("/bmp/{}.bmp".format(launch['term']))
+        bg_tile = displayio.TileGrid(bg_bmp, pixel_shader=bg_bmp.pixel_shader)
+        bg_group = displayio.Group()
+        bg_group.append(bg_tile)
+        header_label.text = header_transform(launch['term'])
         mission_label.text = mission_transform(launch['mission']['name'])
         time_label.text = time_transform(launch['net'])
         pad_label.text = pad_transform(launch['pad']['location']['name'])
-        rocket_label.text = launch['rocket']['configuration']['full_name']
+        rocket_label.text = rocket_transform(launch['rocket']['configuration']['full_name'])
         status_label.text = status_transform(launch['status']['abbrev'])
         details_label.text = details_transform(launch['mission']['description'])
         print(mission_label.text)
