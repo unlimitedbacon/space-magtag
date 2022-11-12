@@ -96,8 +96,11 @@ status_led.value = False
 # Load fonts
 print(":: Loading fonts")
 font_large = bitmap_font.load_font("/fonts/Lato-Bold-ltd-25.bdf")
+font_large.load_glyphs(range(32,128))   # Cache printable ASCII chars
 font_medium_bold = bitmap_font.load_font("/fonts/Arial-Bold-12.pcf")
+font_medium_bold.load_glyphs(range(32,128))
 font_medium = bitmap_font.load_font("/fonts/Arial-12.bdf")
+font_medium.load_glyphs(range(32,128))
 font_small = terminalio.FONT
 
 # Build display layers
