@@ -34,6 +34,16 @@ status_filters = [ 3, # Success
                    7, # Partial Failure
 ]
 
+def error_and_sleep(ex):
+    message = ui.ErrorMessage(fonts, ex)
+    magtag.display.show(message.display_group)
+    magtag.display.refresh()
+
+    # Sleep after waiting 2 seconds for display to complete
+    print(":: Sleeping")
+    time.sleep(2)
+    magtag.exit_and_deep_sleep(TIME_BETWEEN_REFRESHES)
+
 
 # Initialize things
 print(":: Starting")
@@ -56,7 +66,8 @@ print(":: Connecting to WiFi")
 try:
     magtag.network.connect()
 except (ValueError, RuntimeError, ConnectionError, OSError) as e:
-    print("WiFi connection failed: ", e)
+    print("WiFi error: ", e)
+    error_and_sleep(e)
 
 # Fetch data
 print(":: Fetching data")
@@ -97,6 +108,8 @@ while not success and retries < 3:
     except (ValueError, RuntimeError, ConnectionError, OSError) as e:
         retries += 1
         print("Error fetching data: ", e)
+        if retries >= 3:
+            error_and_sleep(e)
 
 status_bar.update(magtag)
 

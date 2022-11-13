@@ -15,6 +15,7 @@ months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
 
 class Fonts:
     def __init__(self):
+        print(":: Loading Fonts")
         self.large = bitmap_font.load_font("/fonts/Lato-Bold-ltd-25.bdf")
         self.large.load_glyphs(range(32,128))   # Cache printable ASCII chars
         self.medium_bold = bitmap_font.load_font("/fonts/Arial-Bold-12.pcf")
@@ -130,7 +131,6 @@ class InfoView:
         return "%s %d at %s" % (months[local.month-1], local.day, timestring)
 
     def __details_transform(self, val):
-        print(val)
         if val == None or not len(val):
             return "Unavailable"
         return "\n".join(wrap_text_to_pixels(val.replace('\r',''), 280, self.__fonts.small)[:3])
@@ -190,5 +190,45 @@ class StatusBar:
 
     def update(self, magtag):
         self.battery_label.text = "{:.2f}v".format(magtag.peripherals.battery)
+
         if magtag.network.is_connected:
             self.signal_icon[0] = 1
+        else:
+            self.signal_icon[0] = 2
+
+class ErrorMessage:
+    def __init__(self, fonts, error):
+        self.__fonts = fonts
+        self.display_group = displayio.Group()
+
+        self.header1_label = label.Label(
+            fonts.large,
+            color=0xffffff,
+            x=8, y=15,
+            text="Error",
+        )
+        self.header2_label = label.Label(
+            fonts.medium_bold,
+            color=0xffffff,
+            x=8, y=38,
+            text=type(error).__name__
+        )
+        self.details_label = label.Label(
+            fonts.small,
+            color=0xffffff,
+            x=8, y=57,
+            text="Details",
+            anchor_poiint=(0,0),
+            line_spacing=0.8,
+            text_wrap=47,
+            text=self.__details_transform(str(error))
+        )
+
+        self.display_group.append(self.header1_label)
+        self.display_group.append(self.header2_label)
+        self.display_group.append(self.details_label)
+
+    def __details_transform(self, val):
+        if val == None:
+            return ""
+        return "\n".join(wrap_text_to_pixels(val.replace('\r',''), 280, self.__fonts.small))
