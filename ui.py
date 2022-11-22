@@ -197,7 +197,7 @@ class StatusBar:
             self.signal_icon[0] = 2
 
 class ErrorMessage:
-    def __init__(self, fonts, error):
+    def __init__(self, fonts, title, exception):
         self.__fonts = fonts
         self.display_group = displayio.Group()
 
@@ -205,13 +205,13 @@ class ErrorMessage:
             fonts.large,
             color=0xffffff,
             x=8, y=15,
-            text="Error",
+            text=title,
         )
         self.header2_label = label.Label(
             fonts.medium_bold,
             color=0xffffff,
             x=8, y=38,
-            text=type(error).__name__
+            text=type(exception).__name__
         )
         self.details_label = label.Label(
             fonts.small,
@@ -221,7 +221,7 @@ class ErrorMessage:
             anchor_poiint=(0,0),
             line_spacing=0.8,
             text_wrap=47,
-            text=self.__details_transform(str(error))
+            text=self.__details_transform(str(exception))
         )
 
         self.display_group.append(self.header1_label)

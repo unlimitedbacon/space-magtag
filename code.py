@@ -34,8 +34,8 @@ status_filters = [ 3, # Success
                    7, # Partial Failure
 ]
 
-def error_and_sleep(ex):
-    message = ui.ErrorMessage(fonts, ex)
+def error_and_sleep(title, ex):
+    message = ui.ErrorMessage(fonts, title, ex)
     magtag.display.show(message.display_group)
     magtag.display.refresh()
 
@@ -67,7 +67,7 @@ try:
     magtag.network.connect()
 except Exception as e:
     print("WiFi error: ", e)
-    error_and_sleep(e)
+    error_and_sleep("WiFi Error", e)
 
 # Fetch data
 print(":: Fetching data")
@@ -109,7 +109,7 @@ while not success and retries < 3:
         retries += 1
         print("Error fetching data: ", e)
         if retries >= 3:
-            error_and_sleep(e)
+            error_and_sleep("Error Accessing API", e)
 
 status_bar.update(magtag)
 
