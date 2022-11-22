@@ -65,7 +65,7 @@ status_bar = ui.StatusBar(fonts)
 print(":: Connecting to WiFi")
 try:
     magtag.network.connect()
-except (ValueError, RuntimeError, ConnectionError, OSError) as e:
+except Exception as e:
     print("WiFi error: ", e)
     error_and_sleep(e)
 
@@ -105,7 +105,7 @@ while not success and retries < 3:
         launch = filtered_launches[0]
         info_view.update(launch)
 
-    except (ValueError, RuntimeError, ConnectionError, OSError) as e:
+    except Exception as e:
         retries += 1
         print("Error fetching data: ", e)
         if retries >= 3:
