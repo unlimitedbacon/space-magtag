@@ -9,7 +9,11 @@
 import board
 import digitalio
 import displayio
+import rtc
 import time
+import wifi
+import socketpool
+import adafruit_ntp
 import adafruit_requests as requests
 from adafruit_fakerequests import Fake_Requests
 from adafruit_magtag.magtag import MagTag
@@ -21,7 +25,7 @@ import ui
 import music
 
 # Configuration
-DEV_MODE = False
+DEV_MODE = True
 TIME_BETWEEN_REFRESHES = 60 * 60  # Seconds
 
 # Set up data location and fields
@@ -63,7 +67,7 @@ magtag = MagTag()
 
 #music.play_tank(magtag)
 #music.play_music(magtag, music.valkyries)
-#music.play_music(magtag, music.swbattle)
+music.play_music(magtag, music.swbattle)
 #music.play_music(magtag, music.portal)
 #countdown()
 
@@ -86,11 +90,26 @@ try:
 except Exception as e:
     print("WiFi error: ", e)
     error_and_sleep("WiFi Error", e)
+    
+# Get the current time if the clock isn't already set
+try:
+    if time.localtime().tm_year < 2020:
+        # Important: This sets time.localtime() to UTC
+        print(":: Syncing clock")
+        pool = socketpool.SocketPool(wifi.radio)
+        ntp = adafruit_ntp.NTP(pool, tz_offset=0)
+        rtc.RTC().datetime = ntp.datetime
+except Exception as e:
+    print("Error syncing clock: ", e)
+    error_and_sleep("Error Getting Time", e)
+print(time.localtime())
+
 
 # Fetch data
 print(":: Fetching data")
 success = False
 retries = 0
+time_to_wakeup = TIME_BETWEEN_REFRESHES
 
 while not success and retries < 3:
     try:
@@ -122,6 +141,8 @@ while not success and retries < 3:
         print(":: Updating UI")
         launch = filtered_launches[0]
         info_view.update(launch)
+
+        # Get updates more frequently when launch is approaching
 
     except Exception as e:
         retries += 1

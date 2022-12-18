@@ -1,5 +1,6 @@
 import displayio
 import terminalio
+import time
 import adafruit_imageload
 from adafruit_bitmap_font import bitmap_font
 from adafruit_display_text import label, wrap_text_to_pixels
@@ -184,12 +185,20 @@ class StatusBar:
             color=0x000000,
             x=264, y=120,
         )
+        self.time_label = label.Label(
+            fonts.small,
+            color=0x000000,
+            x=200, y=120
+        )
         self.display_group.append(self.signal_icon)
         self.display_group.append(self.battery_icon)
         self.display_group.append(self.battery_label)
+        self.display_group.append(self.time_label)
 
     def update(self, magtag):
         self.battery_label.text = "{:.2f}v".format(magtag.peripherals.battery)
+        t = time.localtime()
+        self.time_label.text = "{:0>2d}:{:0>2d}".format(t.tm_hour, t.tm_min)
 
         if magtag.network.is_connected:
             self.signal_icon[0] = 1
