@@ -14,8 +14,11 @@ import adafruit_requests as requests
 from adafruit_fakerequests import Fake_Requests
 from adafruit_magtag.magtag import MagTag
 from adafruit_magtag.magtag import Peripherals
+from adafruit_led_animation.animation.blink import Blink
+from adafruit_led_animation.animation.comet import Comet
 
 import ui
+import music
 
 # Configuration
 DEV_MODE = False
@@ -44,10 +47,25 @@ def error_and_sleep(title, ex):
     time.sleep(2)
     magtag.exit_and_deep_sleep(TIME_BETWEEN_REFRESHES)
 
+def countdown():
+    #blink = Blink(magtag.peripherals.neopixels, speed=0.5, color=(255,0,0))
+    comet = Comet(magtag.peripherals.neopixels, speed=0.1, color=(0,128,255), tail_length=3, bounce=True)
+    #comet = RainbowComet(magtag.peripherals.neopixels, speed=0.1, tail_length=3, bounce=True)
+
+    end = time.monotonic()+10
+    while time.monotonic() < end:
+        comet.animate()
+
 
 # Initialize things
 print(":: Starting")
 magtag = MagTag()
+
+#music.play_tank(magtag)
+#music.play_music(magtag, music.valkyries)
+#music.play_music(magtag, music.swbattle)
+#music.play_music(magtag, music.portal)
+#countdown()
 
 status_led = digitalio.DigitalInOut(board.D13)
 status_led.direction = digitalio.Direction.OUTPUT
