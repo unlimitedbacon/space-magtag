@@ -1,5 +1,9 @@
 import time
 
+
+# NOTE FREQUENCIES
+# ================
+
 DELAY = 0
 # Octave 2
 A2  = 110.00
@@ -52,11 +56,9 @@ DS6 = 1244.51
 E6  = 1318.51
 F6  = 1396.91
 
-#bpm = 83
-#full = 60.0 / bpm
-#half = full / 2
-#n3 = full / 3
-#n4 = full / 4
+
+# SONGS
+# =====
 
 class starwars:
     bpm = 83
@@ -356,6 +358,10 @@ class tank5:
         (E6, 1/2),
         (DELAY, 1),
     ]
+
+
+# MUSIC FUNCTIONS
+# ===============
 
 def play_music(magtag, song):
     beat = 60 / song.bpm

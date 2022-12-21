@@ -15,20 +15,26 @@ import wifi
 import socketpool
 import adafruit_ntp
 import adafruit_requests as requests
+from adafruit_datetime import datetime, timedelta
 from adafruit_fakerequests import Fake_Requests
 from adafruit_magtag.magtag import MagTag
 from adafruit_magtag.magtag import Peripherals
 from adafruit_led_animation.animation.blink import Blink
 from adafruit_led_animation.animation.comet import Comet
+from adafruit_led_animation.animation.solid import Solid
 
 import ui
 import music
 
-# Configuration
-DEV_MODE = True
+
+# CONFIGURATION
+# =============
+
+COUNTDOWN_LIGHTS = True
+COUNTDOWN_MUSIC  = True
+DEV_MODE = False
 TIME_BETWEEN_REFRESHES = 60 * 60  # Seconds
 
-# Set up data location and fields
 if DEV_MODE:
     DATA_URL = "https://lldev.thespacedevs.com/2.2.0/launch/upcoming/?search="
 else:
@@ -41,36 +47,88 @@ status_filters = [ 3, # Success
                    7, # Partial Failure
 ]
 
-def error_and_sleep(title, ex):
+
+# HELPER FUNCTIONS
+# ================
+
+class BatteryError(Exception):
+    def __str__(self):
+        return "The battery voltage is too low. Please charge the battery and press the RESET button."
+
+
+def error_and_sleep(title, ex, halt=False):
+    display_group = displayio.Group()
+    status_bar = ui.StatusBar(fonts, inverted=True)
+    status_bar.update(magtag)
     message = ui.ErrorMessage(fonts, title, ex)
-    magtag.display.show(message.display_group)
+    display_group.append(message.display_group)
+    display_group.append(status_bar.display_group)
+    magtag.display.show(display_group)
     magtag.display.refresh()
 
     # Sleep after waiting 2 seconds for display to complete
     print(":: Sleeping")
     time.sleep(2)
-    magtag.exit_and_deep_sleep(TIME_BETWEEN_REFRESHES)
+    if halt:
+        magtag.exit_and_deep_sleep(999999)
+    else:
+        magtag.exit_and_deep_sleep(TIME_BETWEEN_REFRESHES)
 
-def countdown():
-    #blink = Blink(magtag.peripherals.neopixels, speed=0.5, color=(255,0,0))
-    comet = Comet(magtag.peripherals.neopixels, speed=0.1, color=(0,128,255), tail_length=3, bounce=True)
-    #comet = RainbowComet(magtag.peripherals.neopixels, speed=0.1, tail_length=3, bounce=True)
 
-    end = time.monotonic()+10
-    while time.monotonic() < end:
-        comet.animate()
+def countdown(launch_time):
+    if not COUNTDOWN_LIGHTS:
+        return
 
+    print(":: Beginning Countdown")
+
+    frame_time = 1.0/100
+    comet1 = Comet(magtag.peripherals.neopixels, speed=0.1, color=(0,128,255), tail_length=3, bounce=True)
+    comet2 = Comet(magtag.peripherals.neopixels, speed=0.05, color=(128,0,255), tail_length=3, bounce=True)
+    blink = Blink(magtag.peripherals.neopixels, speed=0.5, color=(255,0,0))
+    solid = Solid(magtag.peripherals.neopixels, color=(255,128,0))
+
+    t_minus = launch_time - datetime.now()
+    while True:
+        if t_minus > timedelta(seconds=60):
+            comet1.animate()
+        elif t_minus > timedelta(seconds=10):
+            comet2.animate()
+        elif t_minus > timedelta(seconds=0):
+            blink.animate()
+        else:
+            print(":: LAUNCH")
+            solid.animate()
+            if COUNTDOWN_MUSIC:
+                #music.play_music(magtag, music.starwars)
+                #music.play_music(magtag, music.close_encounters)
+                music.play_music(magtag, music.startrek)
+                #music.play_music(magtag, music.indiana)
+                #music.play_music(magtag, music.bttf)
+                #music.play_music(magtag, music.swbattle)
+                #music.play_music(magtag, music.valkyries)
+                #music.play_music(magtag, music.portal)
+                #music.play_tank(magtag)
+            time.sleep(5)
+            break
+
+        time.sleep(frame_time)
+        t_minus = launch_time - datetime.now()
+
+
+# MAIN CODE
+# =========
 
 # Initialize things
+print()
+print("MagTag Space Launch Tracker")
+print("===========================")
+print()
 print(":: Starting")
 magtag = MagTag()
 
-#music.play_tank(magtag)
-#music.play_music(magtag, music.valkyries)
-music.play_music(magtag, music.swbattle)
-#music.play_music(magtag, music.portal)
-#countdown()
+#countdown(datetime.now() + timedelta(seconds=70))
 
+# Disable red LED to save power
 status_led = digitalio.DigitalInOut(board.D13)
 status_led.direction = digitalio.Direction.OUTPUT
 status_led.value = False
@@ -82,6 +140,10 @@ fonts = ui.Fonts()
 print(":: Building UI")
 info_view = ui.InfoView(fonts)
 status_bar = ui.StatusBar(fonts)
+
+# Check battery level
+if magtag.peripherals.battery < 3.2:
+    error_and_sleep("Battery Discharged", BatteryError(), halt=True)
 
 # Connect to network
 print(":: Connecting to WiFi")
@@ -102,7 +164,6 @@ try:
 except Exception as e:
     print("Error syncing clock: ", e)
     error_and_sleep("Error Getting Time", e)
-print(time.localtime())
 
 
 # Fetch data
@@ -118,7 +179,8 @@ while not success and retries < 3:
             print("   - "+term)
             #response = Fake_Requests("test_data.json")
             response = magtag.network.fetch(DATA_URL+term)
-            print("API Response: ", response.headers)
+            print()
+            #print("API Response: ", response.headers)
             data = response.json()
             
             # Save search term with each launch
@@ -140,9 +202,8 @@ while not success and retries < 3:
         # Update display objects
         print(":: Updating UI")
         launch = filtered_launches[0]
+        launch_time = datetime.fromisoformat(launch['net'][:19])
         info_view.update(launch)
-
-        # Get updates more frequently when launch is approaching
 
     except Exception as e:
         retries += 1
@@ -150,6 +211,7 @@ while not success and retries < 3:
         if retries >= 3:
             error_and_sleep("Error Accessing API", e)
 
+# Update status bar
 status_bar.update(magtag)
 
 # Display things
@@ -161,7 +223,19 @@ display_group.append(status_bar.display_group)
 magtag.display.show(display_group)
 magtag.display.refresh()
 
+# Set wakup timer early if launch is upcoming before next refresh
+ctime = datetime.now()    # Actually UTC
+#launch_time = ctime + timedelta(minutes=1.5)
+diff = launch_time - ctime
+refresh_time = timedelta(seconds=TIME_BETWEEN_REFRESHES)
+countdown_start = timedelta(minutes=15)
+print(":: Time to launch:", diff)
+if diff < refresh_time and diff > countdown_start:
+    time_to_wakeup = (diff - countdown_start).seconds
+elif diff <= countdown_start:
+    countdown(launch_time)
+
 # Sleep after waiting 2 seconds for display to complete
-print(":: Sleeping")
+print(":: Sleeping for {} seconds".format(time_to_wakeup))
 time.sleep(2)
-magtag.exit_and_deep_sleep(TIME_BETWEEN_REFRESHES)
+magtag.exit_and_deep_sleep(time_to_wakeup)

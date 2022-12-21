@@ -153,9 +153,23 @@ class InfoView:
 
 
 class StatusBar:
-    def __init__(self, fonts):
-        self.display_group = displayio.Group()
-        sprite_sheet, palette = adafruit_imageload.load(
+    def __init__(self, fonts, inverted=False):
+
+        palette = displayio.Palette(4)
+        if inverted:
+            text_color = 0xffffff
+            palette[0] = 0x000000
+            palette[1] = 0x545454
+            palette[2] = 0xa8a8a8
+            palette[3] = 0xffffff
+        else:
+            text_color = 0x000000
+            palette[0] = 0xffffff
+            palette[1] = 0xa8a8a8
+            palette[2] = 0x545454
+            palette[3] = 0x000000
+
+        sprite_sheet, _ = adafruit_imageload.load(
             '/bmp/sprites.bmp',
             bitmap=displayio.Bitmap,
             palette=displayio.Palette
@@ -182,28 +196,32 @@ class StatusBar:
         )
         self.battery_label = label.Label(
             fonts.small,
-            color=0x000000,
+            color=text_color,
             x=264, y=120,
         )
         self.time_label = label.Label(
             fonts.small,
-            color=0x000000,
+            color=text_color,
             x=200, y=120
         )
+
+        self.display_group = displayio.Group()
         self.display_group.append(self.signal_icon)
         self.display_group.append(self.battery_icon)
         self.display_group.append(self.battery_label)
-        self.display_group.append(self.time_label)
+        #self.display_group.append(self.time_label)
 
     def update(self, magtag):
         self.battery_label.text = "{:.2f}v".format(magtag.peripherals.battery)
-        t = time.localtime()
-        self.time_label.text = "{:0>2d}:{:0>2d}".format(t.tm_hour, t.tm_min)
+        utc = datetime.now()
+        local = America_Pacific.toLocal(utc)
+        self.time_label.text = "{:0>2d}:{:0>2d}".format(local.hour, local.minute)
 
         if magtag.network.is_connected:
             self.signal_icon[0] = 1
         else:
             self.signal_icon[0] = 2
+
 
 class ErrorMessage:
     def __init__(self, fonts, title, exception):
