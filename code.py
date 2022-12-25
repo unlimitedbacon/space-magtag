@@ -40,7 +40,7 @@ if DEV_MODE:
 else:
     DATA_URL = "https://ll.thespacedevs.com/2.2.0/launch/upcoming/?search="
 
-search_terms = ["SpaceX", "NASA"]
+search_terms = ["SpaceX", "NASA", "Relativity"]
 status_filters = [ 3, # Success
                    4, # Failure
                    6, # In Flight
