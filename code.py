@@ -153,14 +153,16 @@ except Exception as e:
     print("WiFi error: ", e)
     error_and_sleep("WiFi Error", e)
     
-# Get the current time if the clock isn't already set
+# Sync clock with NTP once per day (01:00 am) or if the clock isn't already set
+print("Current time:", datetime.now())
 try:
-    if time.localtime().tm_year < 2020:
+    if time.localtime().tm_hour == 1 or time.localtime().tm_year < 2020:
         # Important: This sets time.localtime() to UTC
         print(":: Syncing clock")
         pool = socketpool.SocketPool(wifi.radio)
         ntp = adafruit_ntp.NTP(pool, tz_offset=0)
         rtc.RTC().datetime = ntp.datetime
+        print("New time:", datetime.now())
 except Exception as e:
     print("Error syncing clock: ", e)
     error_and_sleep("Error Getting Time", e)
@@ -229,7 +231,8 @@ ctime = datetime.now()    # Actually UTC
 diff = launch_time - ctime
 refresh_time = timedelta(seconds=TIME_BETWEEN_REFRESHES)
 countdown_start = timedelta(minutes=15)
-print(":: Time to launch:", diff)
+print(":: Launch time:", launch_time)
+print(":: T-", diff)
 if diff < refresh_time and diff > countdown_start:
     time_to_wakeup = (diff - countdown_start).seconds
 elif diff <= countdown_start:
